@@ -1,0 +1,116 @@
+{% extends "users/basic.html" %}
+
+{% block content %}
+
+<div class="container py-5">
+    <h1 class="text-center mb-5">Movies</h1>
+
+    <!-- Filters + Search Form -->
+    <div class="row justify-content-center mb-5">
+        <div class="col-md-8">
+            <form method="GET" action="{% url 'movie_list' %}">
+                <div class="input-group">
+
+                    <!-- Search Box -->
+                    <input
+                        class="form-control"
+                        name="search"
+                        placeholder="Search for Movies, Events, Plays, Sports and Activities"
+                        type="text"
+                        value="{{ request.GET.search|default_if_none:'' }}"
+                    />
+
+                    <!-- Genre Dropdown -->
+                    <select class="form-control" name="genre">
+                        <option value="">Select Genre</option>
+                        <option value="Action" {% if request.GET.genre == "Action" %}selected{% endif %}>Action</option>
+                        <option value="Comedy" {% if request.GET.genre == "Comedy" %}selected{% endif %}>Comedy</option>
+                        <option value="Drama" {% if request.GET.genre == "Drama" %}selected{% endif %}>Drama</option>
+                    </select>
+
+                    <!-- Language Dropdown -->
+                    <select class="form-control" name="language">
+                        <option value="">Select Language</option>
+                        <option value="Hindi" {% if request.GET.language == "Hindi" %}selected{% endif %}>Hindi</option>
+                        <option value="English" {% if request.GET.language == "English" %}selected{% endif %}>English</option>
+                        <option value="Marathi" {% if request.GET.language == "Marathi" %}selected{% endif %}>Marathi</option>
+                    </select>
+
+                    <!-- Filter Button -->
+                    <div class="input-group-append">
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-search"></i> Filter
+                        </button>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Movie Cards -->
+    <div class="row" id="movieList">
+        {% for movie in movies %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 shadow-sm">
+                <img src="{{ movie.image.url }}" class="card-img-top"
+                     style="height:300px; object-fit:cover;">
+                <div class="card-body">
+                    <h5 class="card-title">{{ movie.name }}</h5>
+                    <p><i class="fas fa-star text-warning"></i> {{ movie.rating }}</p>
+                    <small class="text-muted">
+                        Cast: {{ movie.cast }} <br>
+                        Genre: {{ movie.genre }} | Language: {{ movie.language }}
+                    </small>
+                </div>
+                <div class="card-footer bg-white border-top-0">
+                    <a href="{% url 'theater_list' movie.id %}"
+                       class="btn btn-outline-primary btn-block">
+                        View Theaters
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center">
+            <p>No movies found.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- REQUIRED CSS FIX -->
+<style>
+    /* Force all controls same height */
+    .input-group input.form-control,
+    .input-group select.form-control,
+    .input-group .btn {
+        height: 50px !important;
+    }
+
+    /* Remove weird rounded edges between controls */
+    .input-group .form-control {
+        border-radius: 0;
+    }
+
+    .input-group input.form-control {
+        border-top-left-radius: 6px;
+        border-bottom-left-radius: 6px;
+    }
+
+    .input-group .btn {
+        border-top-right-radius: 6px;
+        border-bottom-right-radius: 6px;
+    }
+
+    .card {
+        transition: 0.3s;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+</style>
+
+{% endblock %}

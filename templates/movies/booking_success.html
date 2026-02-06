@@ -1,0 +1,10 @@
+{% extends "users/basic.html" %}
+{% block content %}
+<div class="container mt-5 text-center">
+    <h2>Booking Successful! 🎉</h2>
+    <p>You have successfully booked the following seats:</p>
+    <p><strong>{{ booked_seats|join:", " }}</strong></p>
+    <!-- Changed button to go to profile page -->
+    <a href="{% url 'profile' %}" class="btn btn-primary mt-3">View My Tickets</a>
+</div>
+{% endblock %}

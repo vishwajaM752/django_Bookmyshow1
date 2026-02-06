@@ -1,0 +1,170 @@
+{% extends "users/basic.html" %}
+{% block content %}
+
+<style>
+body {
+  background-color: #f4f6f8;
+  font-family: Arial, sans-serif;
+  color: #0a0a0a;
+}
+
+.container {
+  max-width: 900px;
+  margin: 40px auto;
+}
+
+/* Movie Title */
+.movie-title {
+  font-size: 28px;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+/* Trailer */
+.trailer-box {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+/* Theater Card */
+.theatre-card {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 18px 22px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  margin-bottom: 10px;
+}
+
+/* Header */
+.theatre-header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.theatre-name {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* Icons */
+.theatre-icons {
+  font-size: 13px;
+  color: #080000;
+  margin-top: 6px;
+}
+
+/* Date row */
+.showtime-row {
+  margin-top: 12px;
+}
+
+.show-date {
+  font-size: 14px;
+  color: #080808;
+}
+
+/* Book button wrapper */
+.book-btn-wrapper {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 30px;
+}
+
+/* Book button */
+.time-box {
+  width: 75%;
+  background: transparent;
+  color: #28a745;
+  padding: 8px 0;
+  border-radius: 8px; 
+  text-decoration: none;
+  font-weight: 600;
+  text-align: center;
+  border: 2px solid #28a745;
+  transition: 0.3s ease;
+}
+
+.time-box small {
+  font-weight: 400;
+  font-size: 12px;
+  color: #ccc;
+}
+
+/* Hover */
+.time-box:hover {
+  background: #28a745;
+  color: #fff;
+}
+
+/* Footer note */
+.non-cancellable {
+  font-size: 13px;
+  color: #ff9800;
+  margin-top: 20px;
+  text-align: center;
+}
+</style>
+
+<div class="container">
+
+  <!-- Movie Title -->
+  <div class="movie-title">
+    🎬 {{ movie.name }}
+  </div>
+
+  <!-- Trailer -->
+  {% if movie.trailer_url %}
+  <div class="trailer-box">
+    <a href="{{ movie.trailer_url }}" target="_blank" class="btn btn-danger">
+      ▶ Watch Trailer
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- Theater List -->
+  {% if theaters %}
+    {% for theater in theaters %}
+
+      <!-- Theater Card -->
+      <div class="theatre-card">
+        <div class="theatre-header">
+          <div>
+            <div class="theatre-name">{{ theater.name }} Theater</div>
+            <div class="theatre-icons">
+              🎟️ M-Ticket &nbsp; | &nbsp;
+              🍿 Food &nbsp; | &nbsp;
+              🅿️ Parking &nbsp; | &nbsp;
+              ♿ Wheelchair &nbsp; | &nbsp;
+              🎥 3D
+            </div>
+          </div>
+        </div>
+
+        <div class="showtime-row">
+          <div class="show-date">
+            📅 {{ theater.date|default:"Today" }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Book Button -->
+      <div class="book-btn-wrapper">
+        <a href="{% url 'book_seats' theater.id %}" class="time-box">
+          {{ theater.time }} <br>
+          <small>Book Tickets</small>
+        </a>
+      </div>
+
+    {% endfor %}
+  {% else %}
+    <p class="text-center">No theaters available.</p>
+  {% endif %}
+
+  <div class="non-cancellable">
+    ⚠️ Tickets once booked cannot be cancelled
+  </div>
+
+</div>
+
+{% endblock %}
