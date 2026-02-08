@@ -1,3 +1,5 @@
+from django.utils import timezone
+from datetime import timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import Movie, Theater, Seat, Booking
 from django.contrib.auth.decorators import login_required
@@ -8,22 +10,25 @@ import stripe
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
-# Movie list view
+# 🎬 Movie list view
 def movie_list(request):
     search_query = request.GET.get('search')
     genre = request.GET.get('genre')
     language = request.GET.get('language')
+
     movies = Movie.objects.all()
+
     if search_query:
         movies = movies.filter(name__icontains=search_query)
     if genre:
         movies = movies.filter(genre=genre)
     if language:
         movies = movies.filter(language=language)
+
     return render(request, 'movies/movie_list.html', {'movies': movies})
 
 
-# Theater list view
+# 🎥 Theater list + trailer
 def theater_list(request, movie_id):
     movie = get_object_or_404(Movie, id=movie_id)
     theaters = Theater.objects.filter(movie=movie)
@@ -49,7 +54,7 @@ def theater_list(request, movie_id):
     })
 
 
-# 🔥 NEW: Stripe Checkout Session
+# 💳 Stripe Checkout + seat lock
 @login_required(login_url='/login/')
 def create_checkout_session(request, theater_id):
     theater = get_object_or_404(Theater, id=theater_id)
@@ -58,11 +63,25 @@ def create_checkout_session(request, theater_id):
     if not selected_seats:
         return redirect('book_seats', theater_id=theater.id)
 
-    # Store in session
+    # 🔒 Lock seats for 5 minutes
+    for seat_id in selected_seats:
+        seat = get_object_or_404(Seat, id=seat_id, theater=theater)
+
+        if seat.is_booked:
+            return redirect('book_seats', theater_id=theater.id)
+
+        if seat.reserved_by and seat.reserved_by != request.user:
+            if timezone.now() - seat.reserved_at < timedelta(minutes=5):
+                return redirect('book_seats', theater_id=theater.id)
+
+        seat.reserved_by = request.user
+        seat.reserved_at = timezone.now()
+        seat.save()
+
+    # Save session
     request.session['selected_seats'] = selected_seats
     request.session['theater_id'] = theater.id
 
-    # ₹150 per seat
     amount = 150 * len(selected_seats)
 
     checkout_session = stripe.checkout.Session.create(
@@ -79,54 +98,85 @@ def create_checkout_session(request, theater_id):
         }],
         mode='payment',
         success_url=request.build_absolute_uri('/movies/payment-success/'),
-        cancel_url=request.build_absolute_uri(f'/movies/book-seats/{theater.id}/'),
-
+        cancel_url=request.build_absolute_uri(
+            f'/movies/payment-cancel/{theater.id}/'
+        ),
     )
 
     return redirect(checkout_session.url, code=303)
 
 
-# 🔥 NEW: Payment Success (your original booking logic here)
+# ✅ Payment success → confirm booking
 @login_required(login_url='/login/')
 def payment_success(request):
     selected_seats = request.session.get('selected_seats')
     theater_id = request.session.get('theater_id')
 
+    # 🔐 Safety check
+    if not selected_seats or not theater_id:
+        return redirect('movie_list')
+
     theater = get_object_or_404(Theater, id=theater_id)
     seats = Seat.objects.filter(theater=theater)
 
     booked_seat_numbers = []
+    expired_time = timezone.now() - timedelta(minutes=5)
 
     for seat_id in selected_seats:
         seat = get_object_or_404(Seat, id=seat_id, theater=theater)
 
-        if not seat.is_booked:
-            seat.is_booked = True
-            seat.save()
+        if seat.is_booked:
+            continue
 
-            booked_seat_numbers.append(seat.seat_number)
+        if (
+            seat.reserved_by != request.user or
+            seat.reserved_at is None or
+            seat.reserved_at < expired_time
+        ):
+            continue
 
-            Booking.objects.create(
-                user=request.user,
-                seat=seat,
-                movie=theater.movie,
-                theater=theater,
-                payment_status="SUCCESS" 
-            )
+        seat.is_booked = True
+        seat.reserved_by = None
+        seat.reserved_at = None
+        seat.save()
 
-    # 🎟️ SEND EMAIL CONFIRMATION (same as yours)
-    subject = "🎟️ Your Movie Ticket Confirmation"
+        booked_seat_numbers.append(seat.seat_number)
+
+        Booking.objects.create(
+            user=request.user,
+            seat=seat,
+            movie=theater.movie,
+            theater=theater,
+            payment_status="SUCCESS"
+        )
+
+    if not booked_seat_numbers:
+        return redirect('book_seats', theater_id=theater.id)
+
+    # 📧 BEAUTIFUL EMAIL CONFIRMATION
+    subject = "🎟️ Movie Ticket Confirmed – Enjoy Your Show!"
+
     message = f"""
 Hi {request.user.username},
 
-Your booking is confirmed!
+🎉 Your movie ticket has been successfully CONFIRMED!
 
-🎬 Movie: {theater.movie.name}
-🏢 Theater: {theater.name}
-🪑 Seats: {', '.join(booked_seat_numbers)}
+━━━━━━━━━━━━━━━━━━━━━━
+🎬 Movie      : {theater.movie.name}
+🏢 Theater    : {theater.name}
+🕒 Show Time  : {theater.time}
+🪑 Seats      : {', '.join(booked_seat_numbers)}
+━━━━━━━━━━━━━━━━━━━━━━
 
-Enjoy your show! 🍿
+Please arrive at least 15 minutes before the showtime.
+
+Sit back, relax, grab your popcorn 🍿  
+and ENJOY YOUR SHOW! 🎥✨
+
+Thank you for booking with us.
+Have a great time! 😊
 """
+
     send_mail(
         subject,
         message,
@@ -135,6 +185,10 @@ Enjoy your show! 🍿
         fail_silently=False
     )
 
+    # 🧹 Clear session
+    request.session.pop('selected_seats', None)
+    request.session.pop('theater_id', None)
+
     return render(request, 'movies/booking_success.html', {
         'theater': theater,
         'seats': seats,
@@ -142,10 +196,20 @@ Enjoy your show! 🍿
     })
 
 
-# Seat booking view (ONLY REDIRECTS TO STRIPE NOW)
+
+# 🎫 Seat selection page
 @login_required(login_url='/login/')
 def book_seats(request, theater_id):
     theater = get_object_or_404(Theater, id=theater_id)
+
+    # ⏱️ Auto-release expired locks
+    expired_time = timezone.now() - timedelta(minutes=5)
+    Seat.objects.filter(
+        theater=theater,
+        is_booked=False,
+        reserved_at__lt=expired_time
+    ).update(reserved_by=None, reserved_at=None)
+
     seats = Seat.objects.filter(theater=theater)
 
     if request.method == 'POST':
@@ -155,3 +219,20 @@ def book_seats(request, theater_id):
         'theater': theater,
         'seats': seats
     })
+
+
+# ❌ Stripe cancel → release seats
+@login_required(login_url='/login/')
+def payment_cancel(request, theater_id):
+    theater = get_object_or_404(Theater, id=theater_id)
+
+    Seat.objects.filter(
+        theater=theater,
+        reserved_by=request.user,
+        is_booked=False
+    ).update(reserved_by=None, reserved_at=None)
+
+    request.session.pop('selected_seats', None)
+    request.session.pop('theater_id', None)
+
+    return redirect('book_seats', theater_id=theater.id)

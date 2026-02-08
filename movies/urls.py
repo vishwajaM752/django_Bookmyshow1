@@ -8,4 +8,6 @@ urlpatterns = [
     path('theater/<int:theater_id>/seats/book/', views.book_seats, name='book_seats'),
     path('create-checkout-session/<int:theater_id>/', create_checkout_session, name='create_checkout_session'),
     path('payment-success/', payment_success, name='payment_success'),
+    path('payment-cancel/<int:theater_id>/',views.payment_cancel,name='payment_cancel'),
+
 ]
