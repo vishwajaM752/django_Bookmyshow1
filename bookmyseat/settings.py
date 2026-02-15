@@ -94,9 +94,7 @@ WSGI_APPLICATION = 'bookmyseat.wsgi.application'
 # }
 # DATABASES['default'] = dj_database_url.parse('postgresql://django_bookmyshow_9kjk_user:hHb23wdMPX95a8Dwj6OezF3SwMiSAxAk@dpg-d68sq1o6fj8s73c9286g-a.oregon-postgres.render.com/django_bookmyshow_9kjk')
 DATABASES = {
-    "default": dj_database_url.parse(
-        "postgresql://django_bookmyshow_9kjk_user:hHb23wdMPX95a8Dwj6OezF3SwMiSAxAk@dpg-d68sq1o6fj8s73c9286g-a.oregon-postgres.render.com/django_bookmyshow_9kjk"
-    )
+    "default": dj_database_url.parse(os.environ.get("DATABASE_URL"))
 }
 
 # Password validation
